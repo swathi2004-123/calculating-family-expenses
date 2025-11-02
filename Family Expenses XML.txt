@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<exported>
+  <update_set>
+    <name>u_family_expenses_update_set</name>
+    <sys_id>00000000000000000000000000000000</sys_id>
+    <description>Family Expenses tables + Business Rule</description>
+    <state>complete</state>
+  </update_set>
+
+  <!-- Create Family Expenses table -->
+  <record table="sys_db_object">
+    <sys_id>11111111111111111111111111111111</sys_id>
+    <name>u_family_expense</name>
+    <label>Family Expense</label>
+    <super_class></super_class>
+    <sys_created_on></sys_created_on>
+    <sys_created_by>admin</sys_created_by>
+  </record>
+
+  <!-- Fields for Family Expenses (sys_dictionary entries) -->
+  <record table="sys_dictionary">
+    <sys_id>11111111111111111111111111111112</sys_id>
+    <name>u_family_expense</name>
+    <element>u_name</element>
+    <internal_type>string</internal_type>
+    <column_label>Name</column_label>
+    <max_length>100</max_length>
+  </record>
+
+  <record table="sys_dictionary">
+    <sys_id>11111111111111111111111111111113</sys_id>
+    <name>u_family_expense</name>
+    <element>u_description</element>
+    <internal_type>html</internal_type>
+    <column_label>Description</column_label>
+  </record>
+
+  <record table="sys_dictionary">
+    <sys_id>11111111111111111111111111111114</sys_id>
+    <name>u_family_expense</name>
+    <element>u_total_amount</element>
+    <internal_type>decimal</internal_type>
+    <column_label>Total Amount</column_label>
+    <precision>2</precision>
+  </record>
+
+  <!-- Create Daily Expenses table -->
+  <record table="sys_db_object">
+    <sys_id>22222222222222222222222222222222</sys_id>
+    <name>u_daily_expense</name>
+    <label>Daily Expense</label>
+    <super_class></super_class>
+    <sys_created_on></sys_created_on>
+    <sys_created_by>admin</sys_created_by>
+  </record>
+
+  <!-- Fields for Daily Expenses -->
+  <record table="sys_dictionary">
+    <sys_id>22222222222222222222222222222223</sys_id>
+    <name>u_daily_expense</name>
+    <element>u_date</element>
+    <internal_type>glide_date_time</internal_type>
+    <column_label>Date</column_label>
+  </record>
+
+  <record table="sys_dictionary">
+    <sys_id>22222222222222222222222222222224</sys_id>
+    <name>u_daily_expense</name>
+    <element>u_category</element>
+    <internal_type>string</internal_type>
+    <column_label>Category</column_label>
+    <max_length>100</max_length>
+  </record>
+
+  <record table="sys_dictionary">
+    <sys_id>22222222222222222222222222222225</sys_id>
+    <name>u_daily_expense</name>
+    <element>u_amount</element>
+    <internal_type>decimal</internal_type>
+    <column_label>Amount</column_label>
+    <precision>2</precision>
+  </record>
+
+  <!-- Reference field from daily expense to family expense -->
+  <record table="sys_dictionary">
+    <sys_id>22222222222222222222222222222226</sys_id>
+    <name>u_daily_expense</name>
+    <element>u_family_expense</element>
+    <internal_type>reference</internal_type>
+    <reference>u_family_expense</reference>
+    <column_label>Family Expense</column_label>
+  </record>
+
+  <!-- Business Rule: Recalculate family total whenever a daily expense is inserted/updated/deleted -->
+  <record table="sys_script">
+    <sys_id>33333333333333333333333333333333</sys_id>
+    <name>u_recalc_family_total</name>
+    <table>u_daily_expense</table>
+    <active>true</active>
+    <when>after</when>
+    <order>100</order>
+    <conditions></conditions>
+    <condition></condition>
+    <script>
+(function executeRule(current, previous /null when async/) {
+  try {
+    // When a daily expense is inserted/updated/deleted, recalc the parent family's total
+    var familyId = current.u_family_expense;
+    if (!familyId || '' == familyId.toString()) {
+      // if record has no parent, nothing to do
+      return;
+    }
+
+    // Use GlideAggregate to sum u_amount for all daily expenses linked to the family
+    var ga = new GlideAggregate('u_daily_expense');
+    ga.addQuery('u_family_expense', familyId);
+    ga.addAggregate('SUM', 'u_amount');
+    ga.query();
+    var total = 0.0;
+    if (ga.next()) {
+      total = parseFloat(ga.getAggregate('SUM', 'u_amount')) || 0.0;
+    }
+
+    // Update parent family record
+    var gr = new GlideRecord('u_family_expense');
+    if (gr.get(familyId)) {
+      gr.u_total_amount = total;
+      gr.update();
+    }
+  } catch (ex) {
+    gs.error('u_recalc_family_total business rule error: ' + ex);
+  }
+})(current, previous);
+    </script>
+    <sys_created_by>admin</sys_created_by>
+  </record>
+
+  <!-- Optional: Example ACL allowing read of family total (adjust as needed) -->
+  <record table="sys_security_acl">
+    <sys_id>44444444444444444444444444444444</sys_id>
+    <name>u_family_expense.u_total_amount</name>
+    <model>Record</model>
+    <operation>read</operation>
+    <active>true</active>
+    <order>100</order>
+    <script></script>
+  </record>
+
+</exported>
